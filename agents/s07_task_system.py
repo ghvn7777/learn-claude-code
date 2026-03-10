@@ -212,6 +212,9 @@ def agent_loop(messages: list):
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
+        print("=" * 10)
+        print(response)
+        print("=" * 10)
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
             return

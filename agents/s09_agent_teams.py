@@ -181,9 +181,15 @@ class TeammateManager:
                     tools=tools,
                     max_tokens=8000,
                 )
-            except Exception:
+            except Exception as e:
+                print('*' * 10, f'{name} response error', '*' * 10)
+                print(e)
+                print('*' * 10, f'{name} response error', '*' * 10)
                 break
             messages.append({"role": "assistant", "content": response.content})
+            print('-' * 10, f'{name} response start', '-' * 10)
+            print(response)
+            print('-' * 10, f'{name} response end', '-' * 10)
             if response.stop_reason != "tool_use":
                 break
             results = []
@@ -350,7 +356,7 @@ def agent_loop(messages: list):
                 "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>",
             })
             messages.append({
-                "role": "assistant",
+                "role": "user",
                 "content": "Noted inbox messages.",
             })
         response = client.messages.create(
@@ -361,6 +367,9 @@ def agent_loop(messages: list):
             max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
+        print("=" * 10)
+        print(response)
+        print("=" * 10)
         if response.stop_reason != "tool_use":
             return
         results = []
@@ -371,7 +380,7 @@ def agent_loop(messages: list):
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
                 except Exception as e:
                     output = f"Error: {e}"
-                print(f"> {block.name}: {str(output)[:200]}")
+                print(f"lead too use > {block.name}: {str(output)[:200]}")
                 results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,

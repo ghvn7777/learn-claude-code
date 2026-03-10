@@ -120,6 +120,9 @@ def run_subagent(prompt: str) -> str:
             tools=CHILD_TOOLS, max_tokens=8000,
         )
         sub_messages.append({"role": "assistant", "content": response.content})
+        print("=" * 10, "subagent res start", "=" * 10)
+        print(response)
+        print("=" * 10, "subagent res end", "=" * 10)
         if response.stop_reason != "tool_use":
             break
         results = []
@@ -127,6 +130,9 @@ def run_subagent(prompt: str) -> str:
             if block.type == "tool_use":
                 handler = TOOL_HANDLERS.get(block.name)
                 output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                print("*" * 10, "subagent tool result", "*" * 10)
+                print(output)
+                print("*" * 10, "subagent tool result", "*" * 10)
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)[:50000]})
         sub_messages.append({"role": "user", "content": results})
     # Only the final text returns to the parent -- child context is discarded
@@ -147,15 +153,20 @@ def agent_loop(messages: list):
             tools=PARENT_TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
+        print("=" * 10, "parent res start", "=" * 10)
+        print(response)
+        print("=" * 10, "parent res end", "=" * 10)
         if response.stop_reason != "tool_use":
             return
         results = []
         for block in response.content:
             if block.type == "tool_use":
                 if block.name == "task":
-                    desc = block.input.get("description", "subtask")
+                    print("-" * 10, "beforecall subagent", "-" * 10)
+                    desc = block.input.get("description", "subtask") # get the description, if not provided, return "subtask"
                     print(f"> task ({desc}): {block.input['prompt'][:80]}")
                     output = run_subagent(block.input["prompt"])
+                    print("-" * 10, "call subagent end", "-" * 10)
                 else:
                     handler = TOOL_HANDLERS.get(block.name)
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"

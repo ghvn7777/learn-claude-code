@@ -141,7 +141,7 @@ class TeammateManager:
     def _load_config(self) -> dict:
         if self.config_path.exists():
             return json.loads(self.config_path.read_text())
-        return {"team_name": "default", "members": []}
+        return {"team_name": "kaka-team", "members": []}
 
     def _save_config(self):
         self.config_path.write_text(json.dumps(self.config, indent=2))
@@ -197,6 +197,9 @@ class TeammateManager:
                 )
             except Exception:
                 break
+            print('-' * 10, f'{name} response start', '-' * 10)
+            print(response)
+            print('-' * 10, f'{name} response end', '-' * 10)
             messages.append({"role": "assistant", "content": response.content})
             if response.stop_reason != "tool_use":
                 break
@@ -211,6 +214,7 @@ class TeammateManager:
                         "content": str(output),
                     })
                     if block.name == "shutdown_response" and block.input.get("approve"):
+                        print('shutdown_response approve')
                         should_exit = True
             messages.append({"role": "user", "content": results})
         member = self._find_member(name)
@@ -431,7 +435,7 @@ def agent_loop(messages: list):
                 "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>",
             })
             messages.append({
-                "role": "assistant",
+                "role": "user",
                 "content": "Noted inbox messages.",
             })
         response = client.messages.create(
@@ -441,6 +445,9 @@ def agent_loop(messages: list):
             tools=TOOLS,
             max_tokens=8000,
         )
+        print("=" * 10)
+        print(response)
+        print("=" * 10)
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
             return

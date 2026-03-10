@@ -191,6 +191,9 @@ def agent_loop(messages: list):
             tools=TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
+        print("=" * 10)
+        print(response)
+        print("=" * 10)
         if response.stop_reason != "tool_use":
             return
         results = []
@@ -208,6 +211,8 @@ def agent_loop(messages: list):
 
 if __name__ == "__main__":
     history = []
+    print("SYSTEM:", SYSTEM)
+    print("\033[36m--------------------------------\033[0m")
     while True:
         try:
             query = input("\033[36ms05 >> \033[0m")
