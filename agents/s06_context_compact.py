@@ -89,6 +89,9 @@ def micro_compact(messages: list) -> list:
         if isinstance(result.get("content"), str) and len(result["content"]) > 100:
             tool_id = result.get("tool_use_id", "")
             tool_name = tool_name_map.get(tool_id, "unknown")
+            # ex: micro_compact:
+            #   Write the file /Users/jason/Desktop/test.txt -> [Previous: used write_file]
+            # print('micro_compact: ', result["content"], '->', f"[Previous: used {tool_name}]")
             result["content"] = f"[Previous: used {tool_name}]"
     return messages
 
@@ -103,7 +106,7 @@ def auto_compact(messages: list) -> list:
             f.write(json.dumps(msg, default=str) + "\n")
     print(f"[transcript saved: {transcript_path}]")
     # Ask LLM to summarize
-    conversation_text = json.dumps(messages, default=str)[:80000]
+    conversation_text = json.dumps(messages, default=str)
     response = client.messages.create(
         model=MODEL,
         messages=[{"role": "user", "content":
@@ -116,7 +119,6 @@ def auto_compact(messages: list) -> list:
     # Replace all messages with compressed summary
     return [
         {"role": "user", "content": f"[Conversation compressed. Transcript: {transcript_path}]\n\n{summary}"},
-        {"role": "assistant", "content": "Understood. I have the context from the summary. Continuing."},
     ]
 
 
@@ -199,6 +201,7 @@ def agent_loop(messages: list):
         if estimate_tokens(messages) > THRESHOLD:
             print("[auto_compact triggered]")
             messages[:] = auto_compact(messages)
+            print('auto_compact: ', messages)
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,

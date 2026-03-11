@@ -117,6 +117,9 @@ def agent_loop(messages: list):
             tools=TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
+        print("=" * 10)
+        print(response)
+        print("=" * 10)
         if response.stop_reason != "tool_use":
             return
         results = []
@@ -126,6 +129,10 @@ def agent_loop(messages: list):
                 output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
                 print(f"> {block.name}: {output[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
+                if output.startswith("Error:"):
+                    messages.append({"role": "user", "content": results})
+                    messages.append({"role": "user", "content": f"You are not allowed to leave the workspace."})
+                    return
         messages.append({"role": "user", "content": results})
 
 

@@ -104,6 +104,9 @@ class BackgroundManager:
         with self._lock:
             notifs = list(self._notification_queue)
             self._notification_queue.clear()
+        # print('-' * 10)
+        # print('drain_notifications: ', notifs)
+        # print('-' * 10)
         return notifs
 
 
@@ -192,12 +195,18 @@ def agent_loop(messages: list):
             notif_text = "\n".join(
                 f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
             )
+            print('-' * 10)
+            print('notif_text: ', notif_text)
+            print('-' * 10)
             messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
-            messages.append({"role": "assistant", "content": "Noted background results."})
+            messages.append({"role": "user", "content": "Noted background results."})
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
+        print("=" * 10)
+        print(response)
+        print("=" * 10)
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
             return

@@ -57,7 +57,7 @@ INBOX_DIR = TEAM_DIR / "inbox"
 TASKS_DIR = WORKDIR / ".tasks"
 
 POLL_INTERVAL = 5
-IDLE_TIMEOUT = 60
+IDLE_TIMEOUT = 20
 
 SYSTEM = f"You are a team lead at {WORKDIR}. Teammates are autonomous -- they find work themselves."
 
@@ -220,6 +220,7 @@ class TeammateManager:
                 for msg in inbox:
                     if msg.get("type") == "shutdown_request":
                         self._set_status(name, "shutdown")
+                        print(f' ** {name} set status to shutdown')
                         return
                     messages.append({"role": "user", "content": json.dumps(msg)})
                 try:
@@ -233,6 +234,9 @@ class TeammateManager:
                 except Exception:
                     self._set_status(name, "idle")
                     return
+                print('-' * 10, f'{name} response start', '-' * 10)
+                print(response)
+                print('-' * 10, f'{name} response end', '-' * 10)
                 messages.append({"role": "assistant", "content": response.content})
                 if response.stop_reason != "tool_use":
                     break
@@ -240,6 +244,7 @@ class TeammateManager:
                 idle_requested = False
                 for block in response.content:
                     if block.type == "tool_use":
+                        output = None
                         if block.name == "idle":
                             idle_requested = True
                             output = "Entering idle phase. Will poll for new tasks."
@@ -271,18 +276,22 @@ class TeammateManager:
                     resume = True
                     break
                 unclaimed = scan_unclaimed_tasks()
+                print('-' * 10, f'{name} unclaimed tasks', '-' * 10)
+                print(unclaimed)
+                print('-' * 10, f'{name} unclaimed tasks end', '-' * 10)
                 if unclaimed:
                     task = unclaimed[0]
-                    claim_task(task["id"], name)
+                    tmp = claim_task(task["id"], name)
+                    print(f' ** {name} claimed task: {tmp}')
                     task_prompt = (
                         f"<auto-claimed>Task #{task['id']}: {task['subject']}\n"
                         f"{task.get('description', '')}</auto-claimed>"
                     )
                     if len(messages) <= 3:
                         messages.insert(0, make_identity_block(name, role, team_name))
-                        messages.insert(1, {"role": "assistant", "content": f"I am {name}. Continuing."})
+                        messages.insert(1, {"role": "user", "content": f"You are {name}. Continuing."})
                     messages.append({"role": "user", "content": task_prompt})
-                    messages.append({"role": "assistant", "content": f"Claimed task #{task['id']}. Working on it."})
+                    messages.append({"role": "user", "content": f"Claimed task #{task['id']}. Working on it."})
                     resume = True
                     break
 
@@ -455,6 +464,20 @@ def _check_shutdown_status(request_id: str) -> str:
         return json.dumps(shutdown_requests.get(request_id, {"error": "not found"}))
 
 
+def create_task(subject: str, description: str) -> str:
+    TASKS_DIR.mkdir(exist_ok=True)
+    id = len(list(TASKS_DIR.glob("task_*.json"))) + 1
+    task = {
+        "id": id,
+        "subject": subject,
+        "description": description,
+        "status": "pending",
+        "owner": None,
+        "blockedBy": []
+    }
+    (TASKS_DIR / f"task_{task['id']}.json").write_text(json.dumps(task))
+    return f"Task created: #{task['id']}"
+
 # -- Lead tool dispatch (14 tools) --
 TOOL_HANDLERS = {
     "bash":              lambda **kw: _run_bash(kw["command"]),
@@ -471,6 +494,7 @@ TOOL_HANDLERS = {
     "plan_approval":     lambda **kw: handle_plan_review(kw["request_id"], kw["approve"], kw.get("feedback", "")),
     "idle":              lambda **kw: "Lead does not idle.",
     "claim_task":        lambda **kw: claim_task(kw["task_id"], "lead"),
+    "create_task":       lambda **kw: create_task(kw["subject"], kw["description"]),
 }
 
 # these base tools are unchanged from s02
@@ -503,6 +527,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "claim_task", "description": "Claim a task from the board by ID.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
+    {"name": "create_task", "description": "Create a task on the board.",
+     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}}, "required": ["subject", "description"]}},
 ]
 
 
@@ -525,6 +551,9 @@ def agent_loop(messages: list):
             tools=TOOLS,
             max_tokens=8000,
         )
+        print('=' * 10, 'lead response start', '=' * 10)
+        print(response)
+        print('=' * 10, 'lead response end', '=' * 10)
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
             return
