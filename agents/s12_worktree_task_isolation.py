@@ -48,7 +48,6 @@ WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
 MODEL = os.environ["MODEL_ID"]
 
-
 def detect_repo_root(cwd: Path) -> Path | None:
     """Return git repo root if cwd is inside a repo, else None."""
     try:
