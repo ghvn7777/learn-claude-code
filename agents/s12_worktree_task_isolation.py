@@ -530,6 +530,38 @@ def run_edit(path: str, old_text: str, new_text: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+'''
+                task_id = wt["task_id"]
+                before = json.loads(self.tasks.get(task_id))
+                self.tasks.update(task_id, status="completed")
+                self.tasks.unbind_worktree(task_id)
+                self.events.emit(
+                    "task.completed",
+                    task={
+                        "id": task_id,
+                        "subject": before.get("subject", ""),
+                        "status": "completed",
+                    },
+                    worktree={"name": name},
+                )
+
+            idx = self._load_index()
+            for item in idx.get("worktrees", []):
+                if item.get("name") == name:
+                    item["status"] = "removed"
+                    item["removed_at"] = time.time()
+            self._save_index(idx)
+'''
+def bind_worktree(task_id: int, worktree: str, owner: str = "") -> str:
+    s = WORKTREES.tasks.bind_worktree(task_id, worktree, owner)
+    idx = WORKTREES._load_index()
+    for item in idx.get("worktrees", []):
+        if item.get("name") == worktree:
+            item["task_id"] = task_id
+            item["branch"] = f"wt/{worktree}"
+            item["path"] = str(WORKDIR / ".worktrees" / worktree)
+    WORKTREES._save_index(idx)
+    return s
 
 TOOL_HANDLERS = {
     "bash": lambda **kw: run_bash(kw["command"]),
@@ -540,7 +572,7 @@ TOOL_HANDLERS = {
     "task_list": lambda **kw: TASKS.list_all(),
     "task_get": lambda **kw: TASKS.get(kw["task_id"]),
     "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status"), kw.get("owner")),
-    "task_bind_worktree": lambda **kw: TASKS.bind_worktree(kw["task_id"], kw["worktree"], kw.get("owner", "")),
+    "task_bind_worktree": lambda **kw: bind_worktree(kw["task_id"], kw["worktree"], kw.get("owner", "")),
     "worktree_create": lambda **kw: WORKTREES.create(kw["name"], kw.get("task_id"), kw.get("base_ref", "HEAD")),
     "worktree_list": lambda **kw: WORKTREES.list_all(),
     "worktree_status": lambda **kw: WORKTREES.status(kw["name"]),
@@ -733,6 +765,9 @@ def agent_loop(messages: list):
             tools=TOOLS,
             max_tokens=8000,
         )
+        print('=' * 10, 's12 response start', '=' * 10)
+        print(response)
+        print('=' * 10, 's12 response end', '=' * 10)
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason != "tool_use":
             return
@@ -745,7 +780,7 @@ def agent_loop(messages: list):
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
                 except Exception as e:
                     output = f"Error: {e}"
-                print(f"> {block.name}: {str(output)[:200]}")
+                print(f"> {block.name}: {str(output)[:500]}")
                 results.append(
                     {
                         "type": "tool_result",
